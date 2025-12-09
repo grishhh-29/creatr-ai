@@ -72,14 +72,19 @@ const WriteArticle = () => {
 	return (
 		<div className="h-full overflow-y-scroll p-6 flex flex-col gap-4 text-slate-700">
 			{/* Top row: Remaining Article Credits */}
-
-			<div className="flex justify-between items-center w-72 p-2 px-4 bg-white rounded-xl border border-gray-200">
-				<div className="text-slate-600">
-					<p className="text-sm">Remaining Article Credits</p>
-					<h2 className="text-lg font-semibold">{remainingArticleCredits ?? 0}</h2>
+			<div className="flex justify-between items-start w-72 p-2 px-4 bg-white rounded-xl border border-gray-200">
+				<div className="text-slate-600 flex-1">
+					{remainingArticleCredits > 0 && <p className="text-sm">Remaining Article Credits</p>}
+					<h2 className={`font-semibold ${remainingArticleCredits === 0 ? "text-red-600 font-bold" : "text-lg"}`}>
+						{remainingArticleCredits === 0 ? "No credits left! Upgrade to continue." : remainingArticleCredits ?? 0}
+					</h2>
 				</div>
-				<div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#4A7AFF] to-[#65ADFF] text-white flex justify-center items-center">
-					<Sparkles className="w-4 text-white" />
+				<div
+					className={`w-10 h-10 rounded-lg flex justify-center items-center ${
+						remainingArticleCredits === 0 ? "bg-gray-300" : "bg-gradient-to-br from-[#4A7AFF] to-[#65ADFF] text-white"
+					}`}
+				>
+					<Sparkles className={`w-4 ${remainingArticleCredits === 0 ? "text-gray-500" : "text-white"}`} />
 				</div>
 			</div>
 
@@ -120,7 +125,8 @@ const WriteArticle = () => {
 					<br />
 					<button
 						disabled={loading || remainingArticleCredits === 0}
-						className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#226BFF] to-[#65ADFF] text-white px-4 py-2 mt-6 text-sm rounded-lg cursor-pointer disabled:opacity-50"
+						className={`w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#226BFF] to-[#65ADFF] text-white px-4 py-2 mt-6 text-sm rounded-lg 
+    ${loading || remainingArticleCredits === 0 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
 					>
 						{loading ? <span className="w-4 h-4 my-1 rounded-full border-2 border-t-transparent animate-spin"></span> : <Edit className="w-5 " />}
 						Generate article
