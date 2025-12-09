@@ -59,42 +59,43 @@ export const generateBlogTitle = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const { prompt } = req.body;
-		const plan = req.plan;
-		const free_usage = req.free_usage;
+		const credits = req.credits;
 
-		if (plan != "premium" && free_usage >= 10) {
-			return res.json({ succcess: false, message: "Limit reached. Upgrade to continue." });
+		// Check if user has enough blog title credits
+		if (credits.blogTitle <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no blog title credits left. Upgrade to continue.",
+			});
 		}
 
+		// Call AI API
 		const response = await AI.chat.completions.create({
 			model: "gemini-2.0-flash",
-			messages: [
-				{
-					role: "user",
-					content: prompt,
-				},
-			],
+			messages: [{ role: "user", content: prompt }],
 			temperature: 0.7,
 			max_tokens: 100,
 		});
 
 		const content = response.choices[0].message.content;
 
-		await sql` INSERT INTO creations (user_id, prompt, content, type) 
-        VALUES (${userId}, ${prompt}, ${content}, 'blog-tile')`;
+		// Save creation to DB
+		await sql`INSERT INTO creations (user_id, prompt, content, type)
+                   VALUES (${userId}, ${prompt}, ${content}, 'blog-title')`;
 
-		if (plan !== "premium") {
-			await clerkClient.users.updateUserMetadata(userId, {
-				privateMetadata: {
-					free_usage: free_usage + 1,
-				},
-			});
-		}
+		// Deduct 1 blog title credit
+		const updatedCredits = { ...credits, blogTitle: credits.blogTitle - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
 
-		res.json({ success: true, content });
+		res.json({ success: true, content, remainingCredits: updatedCredits.blogTitle });
 	} catch (error) {
-		console.log(error.message);
-		res.json({ success: false, message: error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
 
@@ -102,14 +103,20 @@ export const generateImage = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const { prompt, publish } = req.body;
-		const plan = req.plan;
+		const credits = req.credits;
 
-		if (plan !== "premium") {
-			return res.json({ succcess: false, message: "This feature is only available for premium subscriptions" });
+		// Check if user has enough image credits
+		if (credits.image <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no image generation credits left. Upgrade to continue.",
+			});
 		}
 
+		// Prepare prompt for external API
 		const formData = new FormData();
 		formData.append("prompt", prompt);
+
 		const { data } = await axios.post("https://clipdrop-api.co/text-to-image/v1", formData, {
 			headers: { "x-api-key": process.env.CLIPDROP_API_KEY },
 			responseType: "arraybuffer",
@@ -119,13 +126,24 @@ export const generateImage = async (req, res) => {
 
 		const { secure_url } = await cloudinary.uploader.upload(base64Image);
 
-		await sql` INSERT INTO creations (user_id, prompt, content, type, publish) 
-        VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false} )`;
+		// Save to DB
+		await sql`INSERT INTO creations (user_id, prompt, content, type, publish) 
+                   VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})`;
 
-		res.json({ success: true, content: secure_url });
+		// Deduct 1 image credit
+		const updatedCredits = { ...credits, image: credits.image - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
+
+		// Return remaining credits
+		res.json({ success: true, content: secure_url, remainingCredits: updatedCredits.image });
 	} catch (error) {
-		console.log(error.message);
-		res.json({ success: false, message: error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
 
@@ -133,12 +151,17 @@ export const removeImageBackground = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const image = req.file;
-		const plan = req.plan;
+		const credits = req.credits; // Get user credits
 
-		if (plan !== "premium") {
-			return res.json({ succcess: false, message: "This feature is only available for premium subscriptions" });
+		// Check if user has enough image credits
+		if (credits.removal <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no removal credits left. Upgrade to continue.",
+			});
 		}
 
+		// Remove background via Cloudinary
 		const { secure_url } = await cloudinary.uploader.upload(image.path, {
 			transformation: [
 				{
@@ -148,13 +171,24 @@ export const removeImageBackground = async (req, res) => {
 			],
 		});
 
-		await sql` INSERT INTO creations (user_id, prompt, content, type) 
-        VALUES (${userId}, 'Removed background from image', ${secure_url}, 'image')`;
+		// Save to DB
+		await sql`INSERT INTO creations (user_id, prompt, content, type) 
+                  VALUES (${userId}, 'Removed background from image', ${secure_url}, 'image')`;
 
-		res.json({ success: true, content: secure_url });
+		// Deduct 1 removal credit
+		const updatedCredits = { ...credits, removal: credits.removal - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
+
+		// Return success with remaining credits
+		res.json({ success: true, content: secure_url, remainingCredits: updatedCredits.removal });
 	} catch (error) {
-		console.log(error.message);
-		res.json({ success: false, message: error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
 
@@ -162,11 +196,14 @@ export const removeImageObject = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const { object } = req.body;
-		const image = req.file;
-		const plan = req.plan;
+		const credits = req.credits; // Get user credits
 
-		if (plan !== "premium") {
-			return res.json({ succcess: false, message: "This feature is only available for premium subscriptions" });
+		// Check if user has enough image credits
+		if (credits.removal <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no removal credits left. Upgrade to continue.",
+			});
 		}
 
 		const { public_id } = await cloudinary.uploader.upload(image.path);
@@ -179,10 +216,19 @@ export const removeImageObject = async (req, res) => {
 		await sql` INSERT INTO creations (user_id, prompt, content, type) 
         VALUES (${userId}, ${`Removed ${object} from image`}, ${imageUrl}, 'image')`;
 
-		res.json({ success: true, content: imageUrl });
+		// Deduct 1 removal credit
+		const updatedCredits = { ...credits, removal: credits.removal - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
+
+		res.json({ success: true, content: secure_url, remainingCredits: updatedCredits.removal });
 	} catch (error) {
-		console.log(error.message);
-		res.json({ success: false, message: error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
 
@@ -190,12 +236,15 @@ export const resumeReview = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const resume = req.file;
-		const plan = req.plan;
+		const credits = req.credits; // Get user credits
 
-		if (plan !== "premium") {
-			return res.json({ succcess: false, message: "This feature is only available for premium subscriptions" });
+		// Check if user has enough image credits
+		if (credits.resumeReview <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no resume review credits left. Upgrade to continue.",
+			});
 		}
-
 		if (resume.size > 5 * 1024 * 1024) {
 			return res.json({ success: false, message: "Resume file size exceeds allowed size (5MB)." });
 		}
@@ -214,7 +263,7 @@ export const resumeReview = async (req, res) => {
 				},
 			],
 			temperature: 0.7,
-			max_tokens: 1000,
+			max_tokens: 1200,
 		});
 
 		const content = response.choices[0].message.content;
@@ -222,9 +271,18 @@ export const resumeReview = async (req, res) => {
 		await sql` INSERT INTO creations (user_id, prompt, content, type) 
         VALUES (${userId}, 'Review the uploaded resume', ${content}, 'resume-review')`;
 
-		res.json({ success: true, content });
+		// Deduct 1 removal credit
+		const updatedCredits = { ...credits, resumeReview: credits.resumeReview - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
+
+		res.json({ success: true, content: secure_url, remainingCredits: updatedCredits.resumeReview });
 	} catch (error) {
-		console.log(error.message);
-		res.json({ success: false, message: error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
