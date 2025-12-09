@@ -12,12 +12,14 @@ import Community from './pages/Community'
 import { useAuth } from '@clerk/clerk-react'
 import { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
+import { Analytics } from "@vercel/analytics/react"
 
 const App = () => {
 
   return (
     <div>
       <Toaster />
+      <Analytics />
       <Routes>
         <Route path="/" element={<Home />}/>
         <Route path="/ai" element={<Layout />}>
