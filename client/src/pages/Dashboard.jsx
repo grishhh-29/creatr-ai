@@ -40,21 +40,21 @@ const Dashboard = () => {
 		<div className="h-full overflow-y-scroll p-6">
 			<div className="flex justify-start gap-4 flex-wrap">
 				{/* Total Creations Card */}
-				<div className="flex justify-between items-center w-72 p-4 px-6 bg-white rounded-xl border border-gray-200">
+				<div className="flex justify-between items-center w-72 p-2 px-4 bg-white rounded-xl border border-gray-200">
 					<div className="text-slate-600">
 						<p className="text-sm">Total Creations</p>
-						<h2 className="text-xl font-semibold">{creations.length}</h2>
+						<h2 className="text-lg font-semibold">{creations.length}</h2>
 					</div>
 					<div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF3CAC] to-[#7A004B] text-white flex  justify-center items-center">
-						<Sparkles className="w-5 text-white" />
+						<Sparkles className="w-4 text-white" />
 					</div>
 				</div>
 
 				{/* Active Plan Card */}
-				<div className="flex justify-between items-center w-72 p-4 px-6 bg-white rounded-xl border border-gray-200">
+				<div className="flex justify-between items-center w-72 p-2 px-4 bg-white rounded-xl border border-gray-200">
 					<div className="text-slate-600">
 						<p className="text-sm">Active Plan</p>
-						<h2 className="text-xl font-semibold">
+						<h2 className="text-lg font-semibold">
 							<Protect plan="premium" fallback="Free">
 								Premium
 							</Protect>

@@ -15,44 +15,43 @@ export const generateArticle = async (req, res) => {
 	try {
 		const { userId } = req.auth();
 		const { prompt, length } = req.body;
-		const plan = req.plan;
-		const free_usage = req.free_usage;
+		const credits = req.credits;
 
-		if (plan != "premium" && free_usage >= 10) {
-			return res.json({ succcess: false, message: "Limit reached. Upgrade to continue." });
+		// Check if user has enough credits
+		if (credits.article <= 0) {
+			return res.json({
+				success: false,
+				message: "You have no article credits left. Upgrade to continue.",
+			});
 		}
 
+		// Call AI API
 		const response = await AI.chat.completions.create({
 			model: "gemini-2.0-flash",
-			messages: [
-				{
-					role: "user",
-					content: prompt,
-				},
-			],
+			messages: [{ role: "user", content: prompt }],
 			temperature: 0.7,
 			max_tokens: length,
 		});
 
 		const content = response.choices[0].message.content;
 
-		await sql` INSERT INTO creations (user_id, prompt, content, type) 
-        VALUES (${userId}, ${prompt}, ${content}, 'article')`;
+		// Save creation to DB
+		await sql`INSERT INTO creations (user_id, prompt, content, type) 
+               VALUES (${userId}, ${prompt}, ${content}, 'article')`;
 
-		if (plan !== "premium") {
-			await clerkClient.users.updateUserMetadata(userId, {
-				privateMetadata: {
-					free_usage: free_usage + 1,
-				},
-			});
-		}
+		// Deduct 1 article credit
+		const updatedCredits = { ...credits, article: credits.article - 1 };
+		await clerkClient.users.updateUserMetadata(userId, {
+			privateMetadata: { credits: updatedCredits },
+		});
 
-		res.json({ success: true, content });
+		res.json({ success: true, content, remainingCredits: updatedCredits.article });
 	} catch (error) {
-		// console.log(error.message);
-		// res.json({ success: false, message: error.message });
-		console.log("Full error:", error.response?.data || error);
-		res.json({ success: false, message: error.response?.data?.error?.message || error.message });
+		console.log(error.response?.data || error);
+		res.json({
+			success: false,
+			message: error.response?.data?.error?.message || error.message,
+		});
 	}
 };
 

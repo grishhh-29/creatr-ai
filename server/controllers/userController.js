@@ -1,59 +1,70 @@
 import sql from "../configs/db.js";
+import { clerkClient } from "@clerk/express"; // make sure this import exists at the top
 
+export const getUserCredits = async (req, res) => {
+	try {
+		const { userId } = req.auth(); // uses your existing auth middleware
+		const user = await clerkClient.users.getUser(userId);
 
-export const getUserCreations = async (req,res)=>{
-    try{
-        const {userId} = req.auth();
+		// Send the credits object (or empty if not found)
+		res.json({ success: true, credits: user.privateMetadata?.credits || {} });
+	} catch (error) {
+		res.json({ success: false, message: error.message });
+	}
+};
 
-        const creations = await sql`SELECT * FROM creations WHERE user_id = ${userId} ORDER BY created_at desc`;
+export const getUserCreations = async (req, res) => {
+	try {
+		const { userId } = req.auth();
 
-        res.json({success: true, creations});
-    } catch (error) {
-        res.json({success: false, message: error.message});
-    }
-}
+		const creations = await sql`SELECT * FROM creations WHERE user_id = ${userId} ORDER BY created_at desc`;
 
+		res.json({ success: true, creations });
+	} catch (error) {
+		res.json({ success: false, message: error.message });
+	}
+};
 
-export const getPublishedCreations = async (req,res)=>{
-    try{
-        const creations = await sql`SELECT * FROM creations WHERE publish = true ORDER BY created_at desc`;
+export const getPublishedCreations = async (req, res) => {
+	try {
+		const creations = await sql`SELECT * FROM creations WHERE publish = true ORDER BY created_at desc`;
 
-        res.json({success: true, creations});
-    } catch (error) {
-        res.json({success: false, message: error.message});
-    }
-}
+		res.json({ success: true, creations });
+	} catch (error) {
+		res.json({ success: false, message: error.message });
+	}
+};
 
-export const toggleLikeCreation = async (req,res)=>{
-    try{
-        const {userId} = req.auth();
-        const {id} = req.body;
+export const toggleLikeCreation = async (req, res) => {
+	try {
+		const { userId } = req.auth();
+		const { id } = req.body;
 
-        const [creation] = await sql`SELECT * FROM creations WHERE id = ${id}`;
+		const [creation] = await sql`SELECT * FROM creations WHERE id = ${id}`;
 
-        if(!creation){
-            return res.json({success: false, message: "Creation not found"})
-        }
+		if (!creation) {
+			return res.json({ success: false, message: "Creation not found" });
+		}
 
-        const currentLikes = creation.likes;
-        const userIdStr = userId.toString();
-        let updatedLikes;
-        let message;
+		const currentLikes = creation.likes;
+		const userIdStr = userId.toString();
+		let updatedLikes;
+		let message;
 
-        if(currentLikes.includes(userIdStr)){
-            updatedLikes = currentLikes.filter((user)=>user !== userIdStr);
-            message = "Creation unliked";
-        } else{
-            updatedLikes = [...currentLikes, userIdStr];
-            message = "Creation liked";
-        }
+		if (currentLikes.includes(userIdStr)) {
+			updatedLikes = currentLikes.filter((user) => user !== userIdStr);
+			message = "Creation unliked";
+		} else {
+			updatedLikes = [...currentLikes, userIdStr];
+			message = "Creation liked";
+		}
 
-        const formattedArray = `{${updatedLikes.join(',')}}`;
+		const formattedArray = `{${updatedLikes.join(",")}}`;
 
-        await sql`UPDATE creations SET likes = ${formattedArray}::text[] WHERE id = ${id}`;
+		await sql`UPDATE creations SET likes = ${formattedArray}::text[] WHERE id = ${id}`;
 
-        res.json({success: true, message});
-    } catch (error) {
-        res.json({success: false, message: error.message});
-    }
-}
+		res.json({ success: true, message });
+	} catch (error) {
+		res.json({ success: false, message: error.message });
+	}
+};
