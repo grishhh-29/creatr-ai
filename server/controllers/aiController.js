@@ -277,7 +277,7 @@ export const resumeReview = async (req, res) => {
 			privateMetadata: { credits: updatedCredits },
 		});
 
-		res.json({ success: true, content: secure_url, remainingCredits: updatedCredits.resumeReview });
+		res.json({ success: true, content, remainingCredits: updatedCredits.resumeReview });
 	} catch (error) {
 		console.log(error.response?.data || error);
 		res.json({

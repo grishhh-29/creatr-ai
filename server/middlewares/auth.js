@@ -13,7 +13,7 @@ export const auth = async (req, res, next) => {
     // Initialize credits if they don't exist
     if (!user.privateMetadata?.credits) {
       const defaultCredits = hasPremiumPlan
-        ? { resumeReview: 20, article: 50, blogTitle: 50, image: 20, removal: 30 }
+        ? { resumeReview: 5, article: 10, blogTitle: 10, image: 5, removal: 5 }
         : { resumeReview: 2, article: 5, blogTitle: 5, image: 2, removal: 3 };
 
       await clerkClient.users.updateUser(userId, {
